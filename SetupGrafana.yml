@@ -1,0 +1,56 @@
+---
+- name: Install and configure Grafana
+  hosts: grafana
+  tasks:
+    - name: Add Grafana repository
+      yum_repository:
+        name: grafana
+        description: Grafana repository
+        baseurl: https://packages.grafana.com/oss/rpm
+        gpgcheck: yes
+        gpgkey: https://packages.grafana.com/gpg.key
+    - name: Install Grafana
+      yum:
+        name: grafana
+        state: present
+    - name: Start and enable Grafana service
+      service:
+        name: grafana-server
+        state: started
+        enabled: yes
+    - name: Open Grafana port and reload firewalld
+      ansible.posix.firewalld:
+        port: 3000/tcp
+        permanent: yes
+        state: enabled
+        immediate: yes
+    - name: Wait for Grafana to start
+      wait_for:
+        port: 3000
+        state: started
+        timeout: 60
+    - name: Verify Grafana is responding
+      uri:
+        url: http://localhost:3000/api/health
+        method: GET
+        status_code: 200
+      register: grafana_health
+    - name: Debug Grafana health check
+      debug:
+        var: grafana_health
+    - name: Check current Grafana admin password
+      uri:
+        url: http://localhost:3000/login
+        method: POST
+        body: '{"user":"admin", "password":"rana"}'
+        headers:
+          Content-Type: "application/json"
+        status_code: 200
+      register: login
+      ignore_errors: yes
+    - name: Reset admin password using grafana-cli
+      command: grafana-cli admin reset-admin-password rana
+      args:
+        chdir: /usr/share/grafana
+      when: login.status != 200
+

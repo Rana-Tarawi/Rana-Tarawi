@@ -1,0 +1,17 @@
+- hosts: webserver
+  tasks:
+    - name: Install apache
+      yum:
+        name: httpd
+        state: present
+    - name: start apache
+      service:
+        name: httpd
+        state: started
+        enabled: yes
+    - name: Open apache port and reload firewalld
+      ansible.posix.firewalld:
+        port: 80/tcp
+        permanent: yes
+        state: enabled
+        immediate: yes
